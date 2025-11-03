@@ -1,14 +1,14 @@
-import {render, RenderPosition, replace} from '../framework/render.js';
+import {render, RenderPosition} from '../framework/render.js';
 import FiltersView from '../view/filters.js';
 import SortView from '../view/sort.js';
 import CreateFormView from '../view/create-form.js';
-import EditFormView from '../view/edit-form.js';
-import PointView from '../view/point.js';
 import EmptyView from '../view/empty.js';
+import PointPresenter from './point-presenter.js';
 
 export default class TripPresenter {
   constructor(model) {
     this.model = model;
+    this.pointPresenters = [];
   }
 
   init() {
@@ -59,45 +59,45 @@ export default class TripPresenter {
     
     const pointsToRender = points.slice(0, 3);
     
-    pointsToRender.forEach((point) => {
+    this.pointPresenters = pointsToRender.map((point) => {
       const destination = this.model.getDestinationById(point.destination);
       const selectedOffers = this.model.getSelectedOffers(point);
-
       const listItem = document.createElement('li');
       listItem.className = 'trip-events__item';
       eventsList.appendChild(listItem);
 
-      const pointView = new PointView(point, destination, selectedOffers);
-      listItem.appendChild(pointView.element);
-
-      const availableOffers = this.model.getOffersByType(point.type);
-      const selectedOffersIds = point.offers || [];
-      const allDestinations = this.model.getAllDestinations();
-      const editFormView = new EditFormView(point, destination, availableOffers, selectedOffersIds, allDestinations);
-
-      const onEscKeyDown = (evt) => {
-        if (evt.key === 'Escape' || evt.key === 'Esc') {
-          evt.preventDefault();
-          replace(pointView, editFormView);
-          document.removeEventListener('keydown', onEscKeyDown);
-        }
-      };
-
-      pointView.setRollupClickHandler(() => {
-        replace(editFormView, pointView);
-        document.addEventListener('keydown', onEscKeyDown);
+      const presenter = new PointPresenter({
+        container: listItem,
+        point,
+        destination,
+        selectedOffers,
+        offersByType: this.model.getOffersByType(point.type),
+        allDestinations: this.model.getAllDestinations(),
+        onModeChange: () => this.resetAllPointViews(),
+        onDataChange: (updatedPoint) => this.updatePoint(updatedPoint)
       });
-
-      editFormView.setFormSubmitHandler(() => {
-        replace(pointView, editFormView);
-        document.removeEventListener('keydown', onEscKeyDown);
-      });
-
-      editFormView.setRollupClickHandler(() => {
-        replace(pointView, editFormView);
-        document.removeEventListener('keydown', onEscKeyDown);
-      });
+      presenter.init();
+      return presenter;
     });
+  }
+
+  resetAllPointViews() {
+    this.pointPresenters.forEach((p) => p.resetView());
+  }
+
+  updatePoint(updatedPoint) {
+    this.model.updatePoint(updatedPoint);
+    const presenter = this.pointPresenters.find((p) => p.point.id === updatedPoint.id);
+    if (!presenter) {
+      return;
+    }
+    // Обновляем данные презентера и перерисовываем
+    presenter.point = updatedPoint;
+    presenter.selectedOffers = this.model.getSelectedOffers(updatedPoint);
+    presenter.offersByType = this.model.getOffersByType(updatedPoint.type);
+    presenter.resetView();
+    // Полное переинициализирование представлений
+    presenter.init();
   }
 
   renderCreateForm() {
