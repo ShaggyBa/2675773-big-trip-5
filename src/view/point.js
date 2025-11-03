@@ -1,7 +1,7 @@
-import View from './view.js';
+import AbstractView from '../framework/view/abstract-view.js';
 import {formatDate, formatTime, calculateDuration} from '../utils/date.js';
 
-export default class PointView extends View {
+export default class PointView extends AbstractView {
   constructor(point, destination, selectedOffers) {
     super();
     this.point = point;
@@ -65,6 +65,11 @@ export default class PointView extends View {
         </button>
       </div>
     `;
+  }
+
+  setRollupClickHandler(handler) {
+    this.element.querySelector('.event__rollup-btn')
+      .addEventListener('click', handler);
   }
 }
 
